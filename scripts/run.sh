@@ -4,6 +4,7 @@ set -x
 
 threeway="false"
 scalable_tput="false"
+cfg_dir="cfg"
 
 source $(dirname $0)/common.sh
 

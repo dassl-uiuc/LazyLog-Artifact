@@ -26,22 +26,12 @@ class ShardClient : public ERPCTransport {
     bool ReadEntry(const uint64_t idx, LogEntry &e);
     void ReplicateBatchAsync(const uint8_t *buf, size_t size, RPCToken &token);
 
-#ifdef CORFU
-    void ReadBatchAsync(const uint64_t start_idx, const uint64_t end_idx, RPCToken &token);
-    bool AppendEntry(const LogEntry &e);
-    void SetRemoteIdOffset(int input);
-#endif
-
    protected:
     erpc::MsgBuffer req_;
     erpc::MsgBuffer resp_;
 
     bool del_nexus_on_finalize_;
     int session_num_;
-
-#ifdef CORFU
-    int remote_id_offset_;
-#endif
 };
 
 }  // namespace lazylog

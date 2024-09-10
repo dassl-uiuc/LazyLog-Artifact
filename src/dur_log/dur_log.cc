@@ -9,9 +9,6 @@ namespace lazylog {
 DurabilityLog::DurabilityLog() : view_(0), is_primary_(false), ordered_watermk_base_(-1) {
     sequencer_ = &sequencer_base_;
     ordered_watermk_ = &ordered_watermk_base_;
-#ifdef CORFU
-    gsn_ = 0;
-#endif
 }
 
 DurabilityLog::~DurabilityLog() {}
@@ -96,18 +93,6 @@ uint32_t DurabilityLog::DelOrderedEntries(const std::vector<LogEntry::ReqID> &ma
 int DurabilityLog::SpecReadEntry(const uint64_t idx, LogEntry &e) { return 0; }
 
 uint16_t DurabilityLog::GetView() const { return view_; }
-
-#ifdef CORFU
-uint64_t DurabilityLog::GetGSN() {
-    uint64_t ret = gsn_.fetch_add(1);
-    return ret;
-}
-
-uint64_t DurabilityLog::GetGSN(uint64_t batchSize) {
-    uint64_t ret = gsn_.fetch_add(batchSize);
-    return ret;
-}
-#endif
 
 uint32_t DurabilityLog::delEntriesPrimary(const std::vector<LogEntry::ReqID> &max_seq_req_ids) {
     std::lock_guard<std::mutex> lock(lk_);

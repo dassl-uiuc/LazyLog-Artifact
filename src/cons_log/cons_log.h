@@ -8,12 +8,13 @@
 #include "../dur_log/dur_log_cli.h"
 #include "../rpc/common.h"
 #include "../utils/properties.h"
-#include "storage/storage_backend.h"
+#include "storage/datalog/datalog_client.h"
 
 namespace lazylog {
 
 class ConsensusLog {
     friend class ERPCConsLogTransport;
+
    public:
     ConsensusLog();
     ~ConsensusLog();
@@ -33,6 +34,8 @@ class ConsensusLog {
     void fetch();
     void store(bool &run);
     bool allDeletionCompleted();
+    bool allRPCCompleted(std::vector<std::shared_ptr<RPCToken> > &tokens);
+    bool allRPCCompleted(std::vector<RPCToken> &tokens);
 
    protected:
     struct PipelineObj {
@@ -49,8 +52,9 @@ class ConsensusLog {
     std::shared_ptr<DurabilityLogCli> pri_dur_cli_;  // used to fetch from durability log
     std::unordered_map<std::string, std::shared_ptr<DurabilityLogCli> > dur_cli_;
     bool is_primary_;
+    uint64_t shard_num_;
     std::string cons_primary_server;
-    std::shared_ptr<StorageBackend> backend_;
+    std::unordered_map<std::string, std::shared_ptr<DataLogClient> > datalog_clis_;
     uint64_t max_ordered_idx_;
 
     uint32_t max_fetch_size_;

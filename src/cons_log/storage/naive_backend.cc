@@ -12,8 +12,8 @@ void NaiveBackend::InitializeBackend(const Properties& p) {
     stripe_unit_size_ = std::stoi(p.GetProperty(PROP_SHD_STRIPE_SIZE, PROP_SHD_STRIPE_SIZE_DEFAULT));
     std::vector<std::string> shd_servers =
         SeparateValue(p.GetProperty(PROP_SHD_PRI_URI, PROP_SHD_PRI_URI_DEFAULT), ',');
-    shard_num_ = std::stoll(p.GetProperty("shard.num"));
-    for (int i = 0; i < shard_num_; i++) {
+    shard_num_ = shd_servers.size();
+    for (int i = 0; i < shd_servers.size(); i++) {
         shard_clients_[i] = std::make_shared<ShardClient>();
         shard_clients_[i]->InitializeConn(p, shd_servers[i], nullptr);
     }
@@ -67,6 +67,8 @@ uint64_t NaiveBackend::AppendBatch(const std::vector<LogEntry>& es) {
     return end_idx;
 }
 
+bool NaiveBackend::AppendBatch(const uint8_t* buf, size_t size) { return false; }
+
 bool NaiveBackend::ReadEntry(const uint64_t idx, LogEntry& e) {
     int shard_id = idx % shard_num_;
     shard_clients_[shard_id]->ReadEntry(idx, e);
@@ -106,39 +108,12 @@ void NaiveReadBackend::InitializeBackend(const Properties& p) {
     stripe_unit_size_ = std::stoi(p.GetProperty(PROP_SHD_STRIPE_SIZE, PROP_SHD_STRIPE_SIZE_DEFAULT));
     std::vector<std::string> shd_servers =
         SeparateValue(p.GetProperty(PROP_SHD_PRI_URI, PROP_SHD_PRI_URI_DEFAULT), ',');
-    shard_num_ = std::stoll(p.GetProperty("shard.num"));
-#ifdef CORFU
-    std::vector<std::string> id_offsets = SeparateValue(p.GetProperty("shard.id_offset", "0"), ',');
-    for (int i = 0; i < shard_num_; i++) {
+    shard_num_ = shd_servers.size();
+    for (int i = 0; i < shd_servers.size(); i++) {
         shard_clients_[i] = std::make_shared<ShardClient>();
-        shard_clients_[i]->SetRemoteIdOffset(std::stoi(id_offsets[i]));
-        shard_clients_[i]->InitializeConn(p, shd_servers[i], static_cast<void*>(&thread_id_));
-    }
-#else
-    for (int i = 0; i < shard_num_; i++) {
-        shard_clients_[i] = std::make_shared<ShardClient>();
-        shard_clients_[i]->InitializeConn(p, shd_servers[i], static_cast<void*>(&thread_id_));
-    }
-#endif
-}
-
-#ifdef CORFU
-void NaiveReadBackend::InitializeBackendBackup(const Properties& p, int idx) {
-    stripe_unit_size_ = std::stoi(p.GetProperty(PROP_SHD_STRIPE_SIZE, PROP_SHD_STRIPE_SIZE_DEFAULT));
-    std::vector<std::string> shd_servers;
-    if (idx == 1)
-        shd_servers = SeparateValue(p.GetProperty(PROP_SHD_BACKUP_URI, PROP_SHD_BACKUP_URI_DEFAULT), ',');
-    else
-        shd_servers = SeparateValue(p.GetProperty(PROP_SHD_BACKUP_URI_2, PROP_SHD_BACKUP_URI_DEFAULT), ',');
-    std::vector<std::string> id_offsets = SeparateValue(p.GetProperty("shard.id_offset", "0"), ',');
-    shard_num_ = std::stoi(p.GetProperty("shard.num", "1"));
-    for (int i = 0; i < shard_num_; i++) {
-        shard_clients_[i] = std::make_shared<ShardClient>();
-        shard_clients_[i]->SetRemoteIdOffset(std::stoi(id_offsets[i]));
         shard_clients_[i]->InitializeConn(p, shd_servers[i], static_cast<void*>(&thread_id_));
     }
 }
-#endif
 
 void NaiveReadBackend::FinalizeBackend() {
     for (auto& c : shard_clients_) c.second->Finalize();
@@ -164,16 +139,8 @@ bool NaiveReadBackend::ReadEntry(const uint64_t idx, LogEntry& e) {
     return true;
 }
 
+bool NaiveReadBackend::AppendBatch(const uint8_t* buf, size_t size) { return false; }
 void NaiveReadBackend::UpdateGlobalIdx(const uint64_t idx) {}
-#ifdef CORFU
-uint64_t NaiveReadBackend::AppendBatch(const std::vector<LogEntry>& es) {
-    LogEntry e = es[0];
-    uint32_t shard_id = e.log_idx % shard_num_;
-    shard_clients_[shard_id]->AppendEntry(e);
-    return 0;
-}
-#else
 uint64_t NaiveReadBackend::AppendBatch(const std::vector<LogEntry>& es) { return false; }
-#endif
 
 }  // namespace lazylog

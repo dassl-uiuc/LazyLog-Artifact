@@ -22,9 +22,6 @@ class DurabilityLogCli : public ERPCTransport {
     virtual uint64_t ProcessFetchedEntries(const std::vector<LogEntry> &es, std::vector<LogEntry::ReqID> &req_ids) = 0;
     virtual bool IsPrimary() = 0;
     virtual bool CheckAndRunOnce() = 0;
-#ifdef CORFU
-    virtual uint64_t getGSN() = 0;
-#endif
 
    public:
     virtual void AddPendingReq(std::shared_ptr<RPCToken> &token) = 0;

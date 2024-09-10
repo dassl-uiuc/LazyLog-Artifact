@@ -12,7 +12,7 @@ else
     shard_pri=("node5" "node7" "node9" "node11" "node13")
     shard_bac=("node6" "node8" "node10" "node12" "node14")
 fi
-client_nodes=("node0")
+client_nodes=("node0" "node15")
 username="luoxh"
 usergroup="rasl-PG0"
 
@@ -32,19 +32,19 @@ cons_cmd() {
 }
 
 shard_cmd_primary() {
-    echo "sudo GLOG_minloglevel=1 ./build/src/cons_log/storage/shardsvr -P ${cfg_dir}/rdma.prop -P ${cfg_dir}/be.prop -P ${cfg_dir}/shard$1.prop -p leader=true"
+    echo "sudo GLOG_minloglevel=1 ./build/src/cons_log/storage/datalog/datalogsvr -P ${cfg_dir}/rdma.prop -P ${cfg_dir}/be.prop -P ${cfg_dir}/shard$1.prop -p leader=true"
 }
 
 # arg: ip_addr of node
 shard_cmd_backup() {
-    echo "sudo GLOG_minloglevel=1 ./build/src/cons_log/storage/shardsvr -P ${cfg_dir}/rdma.prop -P ${cfg_dir}/be.prop -P ${cfg_dir}/shard$2.prop -p shard.server_uri=$1:31860"
+    echo "sudo GLOG_minloglevel=1 ./build/src/cons_log/storage/datalog/datalogsvr -P ${cfg_dir}/rdma.prop -P ${cfg_dir}/be.prop -P ${cfg_dir}/shard$2.prop -p shard.server_uri=$1:31860"
 }
 
 # used when running two shard servers on the same ip. 
 # must use 31861 port
 # arg: ip_addr of node
 shard_cmd_backup_prime() {
-    echo "sudo GLOG_minloglevel=1 ./build/src/cons_log/storage/shardsvr -P ${cfg_dir}/rdma.prop -P ${cfg_dir}/be.prop -P ${cfg_dir}/shard$2.prop -p shard.server_uri=$1:31861"
+    echo "sudo GLOG_minloglevel=1 ./build/src/cons_log/storage/datalog/datalogsvr -P ${cfg_dir}/rdma.prop -P ${cfg_dir}/be.prop -P ${cfg_dir}/shard$2.prop -p shard.server_uri=$1:31861"
 }
 
 # args: batch size, round
@@ -68,7 +68,7 @@ mixed_cmd() {
 
 # args: runtime in secs, number of threads, request size
 append_cmd() {
-    echo "sudo GLOG_minloglevel=1 ./build/src/client/benchmarking/append_bench -P ${cfg_dir}/be.prop -P ${cfg_dir}/dl_client.prop -P ${cfg_dir}/rdma.prop -p runtime_secs=$1 -p threadcount=$2 -p request_size_bytes=$3 -p limit.ops=$4"
+    echo "sudo GLOG_minloglevel=1 ./build/src/client/benchmarking/append_bench -P ${cfg_dir}/be.prop -P ${cfg_dir}/dl_client.prop -P ${cfg_dir}/rdma.prop -p runtime_secs=$1 -p threadcount=$2 -p request_size_bytes=$3"
 }
 
 dur_svrs_ip=()
@@ -162,7 +162,7 @@ run_append_bench() {
         else
             num_jobs_for_client=$low_num
         fi
-        ssh -o StrictHostKeyChecking=no -i $pe $username@$client "sh -c \"cd $ll_dir && nohup $(append_cmd $1 $num_jobs_for_client $3 $4) -p dur_log.client_uri=$(get_ip $client):31851 -p node_id=$i > $log_dir/append_bench_$client.log 2>&1\"" &
+        ssh -o StrictHostKeyChecking=no -i $pe $username@$client "sh -c \"cd $ll_dir && nohup $(append_cmd $1 $num_jobs_for_client $3) -p dur_log.client_uri=$(get_ip $client):31851 -p node_id=$i > $log_dir/append_bench_$client.log 2>&1\"" &
     done
     wait
 }
@@ -170,11 +170,11 @@ run_append_bench() {
 kill_shard_svrs() {
     for svr in "${shard_pri[@]}"; 
     do
-        ssh -o StrictHostKeyChecking=no -i $pe $username@$svr "sudo bash -s shardsvr" < $script_dir/kill_process.sh &
+        ssh -o StrictHostKeyChecking=no -i $pe $username@$svr "sudo bash -s datalogsvr" < $script_dir/kill_process.sh &
     done
     for svr in "${shard_bac[@]}"; 
     do
-        ssh -o StrictHostKeyChecking=no -i $pe $username@$svr "sudo bash -s shardsvr" < $script_dir/kill_process.sh &
+        ssh -o StrictHostKeyChecking=no -i $pe $username@$svr "sudo bash -s datalogsvr" < $script_dir/kill_process.sh &
     done 
     wait
 }

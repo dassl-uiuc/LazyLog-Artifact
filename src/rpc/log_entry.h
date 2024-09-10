@@ -3,6 +3,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace lazylog {
@@ -55,15 +56,24 @@ size_t Serializer(const LogEntry &e, uint8_t *buf);
 
 size_t Deserializer(LogEntry &e, const uint8_t *buf);
 
+uint32_t GetNumEntries(const uint8_t *buf, const uint64_t size);
+
+size_t MultiIntDeserializer(std::vector<int> &entries, uint8_t *buf);
+
 size_t MultiSerializer(const std::vector<LogEntry> &es, uint8_t *buf);
+
+size_t MultiSerializer(const std::vector<LogEntry *> &es, uint64_t from, uint64_t num, uint8_t *buf,
+                       std::unordered_map<uint64_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> &offset_map,
+                       uint64_t file_no, uint64_t file_base_offset);
+
+size_t MultiIntSerializer(std::vector<int> &entries, uint64_t from, uint64_t num, uint8_t *buf, bool with_num = false);
 
 /**
  * Serialize a subsequence of the entries
  * @param from first entry
  * @param num total number of entries to serialize
- * @param wo_num do not add num in the beginning
  */
-size_t MultiSerializer(const std::vector<LogEntry> &es, uint64_t from, uint32_t num, uint8_t *buf, bool wo_num = false);
+size_t MultiSerializer(const std::vector<LogEntry> &es, uint64_t from, uint32_t num, uint8_t *buf);
 
 /**
  * Process the buffer and build the map of sequence numbers to file offsets

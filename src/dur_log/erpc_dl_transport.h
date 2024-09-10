@@ -33,10 +33,6 @@ class ERPCDurLogTransport : public ERPCTransport {
     static void OrderEntryHandler(erpc::ReqHandle *req_handle, void *context);      // called from client
     static void GetNumDurEntryHandler(erpc::ReqHandle *req_handle, void *context);  // called from client
     static void SpecReadHandler(erpc::ReqHandle *req_handle, void *context);        // called from client
-#ifdef CORFU
-    static void GetGSNHandler(erpc::ReqHandle *req_handle, void *context);          // called from client
-    static void GetGSNBatchHandler(erpc::ReqHandle *req_handle, void *context);     // called from client
-#endif
 
     static void FetchUnorderedEntriesHandler(erpc::ReqHandle *req_handle, void *context);  // called from consensus log
     static void DeleteOrderedEntriesHandler(erpc::ReqHandle *req_handle, void *context);   // called from consensus log

@@ -5,7 +5,7 @@
 #include <unordered_map>
 
 #include "../../utils/properties.h"
-#include "../lazylog_cli.h"
+#include "../lazylog_scalable_cli.h"
 
 using namespace lazylog;
 using namespace std::chrono;
@@ -13,37 +13,65 @@ using namespace std::chrono;
 std::unordered_map<int, std::pair<uint64_t, uint64_t>> num_requests_and_durations;
 
 void reader_thread(int thd_id, hdr_histogram* histogram, const Properties& prop) {
-    std::cout << "[read_bench]: starting thread " << thd_id << " ..." << std::endl;
+    std::cout << "[mixed_bench]: starting reader thread " << thd_id << " ..." << std::endl;
 
-    LazyLogClient cli;
-    uint64_t request_count = std::stoll(prop.GetProperty("request_count", "10000"));
+    LazyLogScalableClient cli;
+    auto modified_p = prop;
+    modified_p.SetProperty("dur_log.client_id", std::to_string(thd_id));
     uint64_t runtime_secs = std::stoll(prop.GetProperty("runtime_secs", "180"));
+    uint64_t request_count = std::stoll(prop.GetProperty("request_count", "10000"));
+    uint64_t batch_size = std::stoll(prop.GetProperty("batch_size", "25"));
     num_requests_and_durations.insert({thd_id, {0, 0}});
 
-    cli.Initialize(prop);
+    cli.Initialize(modified_p);
 
+    uint64_t num_requests = 0;
     uint64_t idx = 0;
-    uint64_t num_request = 0;
     auto begin = high_resolution_clock::now();
-    while (true) {
-        std::string data;
-        auto start = high_resolution_clock::now();
-        assert(cli.ReadEntry(idx, data));
-        hdr_record_value_atomic(histogram, duration_cast<nanoseconds>(high_resolution_clock::now() - start).count());
-        idx = (idx + 1) % request_count;
-        num_request++;
-        if (duration_cast<seconds>(high_resolution_clock::now() - begin).count() >= runtime_secs) break;
+    if (batch_size != 1) {
+        while (true) {
+            std::vector<LogEntry> entries;
+            auto start = high_resolution_clock::now();
+            if (idx + batch_size > request_count) idx = 0;
+            while (!cli.ReadEntries(idx, idx + batch_size - 1, entries)) {
+                if (duration_cast<seconds>(high_resolution_clock::now() - begin).count() >= runtime_secs) {
+                    goto end;
+                };
+            }
+            hdr_record_value_atomic(histogram,
+                                    duration_cast<nanoseconds>(high_resolution_clock::now() - start).count());
+            idx = (idx + batch_size) % request_count;
+            num_requests += batch_size;
+            if (duration_cast<seconds>(high_resolution_clock::now() - begin).count() >= runtime_secs) break;
+        }
+    } else {
+        while (true) {
+            std::string data;
+            auto start = high_resolution_clock::now();
+            while (!cli.ReadEntry(idx, data)) {
+                if (duration_cast<seconds>(high_resolution_clock::now() - begin).count() >= runtime_secs) {
+                    goto end;
+                };
+            }
+            hdr_record_value_atomic(histogram,
+                                    duration_cast<nanoseconds>(high_resolution_clock::now() - start).count());
+            idx = (idx + 1) % request_count;
+            num_requests++;
+            if (duration_cast<seconds>(high_resolution_clock::now() - begin).count() >= runtime_secs) break;
+        }
     }
-    num_requests_and_durations[thd_id] = {num_request,
+end:
+    num_requests_and_durations[thd_id] = {num_requests,
                                           duration_cast<nanoseconds>(high_resolution_clock::now() - begin).count()};
-    std::cout << "[read_bench]: thread " << thd_id << " done" << std::endl;
+    std::cout << "[mixed_bench]: reader thread " << thd_id << " done reading " << num_requests << " entries"
+              << std::endl;
     return;
 }
 
-double compute_throughput(uint64_t num_requests) {
-    double tput;
+long double compute_throughput() {
+    long double tput = 0.0;
     for (auto& p : num_requests_and_durations) {
-        tput += double(p.second.first) * 1.0e9 / p.second.second;
+        tput += static_cast<long double>(p.second.first) * 1.0e9 / p.second.second;
     }
     return tput;
 }
@@ -70,11 +98,11 @@ int main(int argc, const char* argv[]) {
         t.join();
     }
 
-    std::cout << "[read-bench]: read throughput " << compute_throughput(request_count) << " ops/sec" << std::endl;
+    std::cout << "[read_bench]: read throughput " << compute_throughput() << " ops/sec" << std::endl;
 
-    std::cout << "[read-bench]: latency metrics " << std::endl;
+    std::cout << "[read_bench]: latency metrics " << std::endl;
     hdr_percentiles_print(histogram, stdout, 5, 1, CLASSIC);
-    std::cout << "[read-bench]: percentile latencies " << std::endl
+    std::cout << "[read_bench]: percentile latencies " << std::endl
               << "\tp50: " << hdr_value_at_percentile(histogram, 50.0) << std::endl
               << "\tp95: " << hdr_value_at_percentile(histogram, 95.0) << std::endl
               << "\tp99: " << hdr_value_at_percentile(histogram, 99.0) << std::endl

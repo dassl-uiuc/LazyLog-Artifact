@@ -12,10 +12,6 @@
 #include "../utils/properties.h"
 #include "../utils/sequencer.h"
 
-#ifdef CORFU
-#include "../rpc/erpc_transport.h"
-#endif
-
 namespace lazylog {
 
 /**
@@ -24,17 +20,16 @@ namespace lazylog {
 class LazyLogClient {
    public:
     LazyLogClient();
-    ~LazyLogClient();
+    virtual ~LazyLogClient();
 
-    void Initialize(const Properties &p);
-    void Finalize();
+    virtual void Initialize(const Properties &p);
 
     std::pair<uint64_t, uint64_t> AppendEntry(const std::string &data);
     std::pair<uint64_t, uint64_t> AppendEntryQuorum(const std::string &data);
-    std::pair<uint64_t, uint64_t> AppendEntryAll(const std::string &data);
+    virtual std::pair<uint64_t, uint64_t> AppendEntryAll(const std::string &data);
     uint64_t OrderEntry(const std::string &data);
-    bool ReadEntry(const uint64_t idx, std::string &data);
-    bool ReadEntries(const uint64_t from, const uint64_t to, std::vector<LogEntry> &es);
+    virtual bool ReadEntry(const uint64_t idx, std::string &data);
+    virtual bool ReadEntries(const uint64_t from, const uint64_t to, std::vector<LogEntry> &es);
     /**
      * @return There are 4 possible kinds of values:
      *  1. >0: a valid entry is read
@@ -51,12 +46,6 @@ class LazyLogClient {
      */
     std::tuple<uint64_t, uint64_t, uint16_t> GetTail();
 
-    void doProgress();
-
-#ifdef CORFU
-    int AppendEntryCorfu(const std::string &data);
-#endif
-
    protected:
     LogEntry constructLogEntry(const std::string &data);
     bool quorumCompleted(std::shared_ptr<RPCToken> pri_token, std::vector<std::shared_ptr<RPCToken> > &tokens);
@@ -66,17 +55,12 @@ class LazyLogClient {
     // std::shared_ptr<ConsensusLogCli> cons_cli_;  // for indirect read, currently not used
     std::unordered_map<std::string, std::shared_ptr<DurabilityLogCli> > dur_clis_;
     std::shared_ptr<NaiveReadBackend> be_rd_cli_;  // for direct read
-#ifdef CORFU
-    std::shared_ptr<NaiveReadBackend> be_rd_cli_backup_;    // for corfu write
-    std::shared_ptr<NaiveReadBackend> be_rd_cli_backup_2_;  // for corfu write
-#endif
 
     std::string dl_primary_;
 
     uint64_t client_id_;
     Sequencer seq_;
     int maj_threshold_;
-    bool finalized_;
 
     static std::atomic<uint8_t> global_th_id_;
     static std::atomic<uint64_t> global_cli_id_;

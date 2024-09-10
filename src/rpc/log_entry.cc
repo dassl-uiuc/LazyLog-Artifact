@@ -83,6 +83,58 @@ size_t Deserializer(LogEntry &e, const uint8_t *buf) {
     return offset;
 }
 
+uint32_t GetNumEntries(const uint8_t *buf, const uint64_t size) {
+    size_t offset = 0;
+    uint32_t num = 0;
+    LogEntry dummy;
+    while (offset < size) {
+        size_t sz = Deserializer(dummy, buf + offset);
+        num++;
+        offset += sz;
+    }
+
+    return num;
+}
+
+size_t MultiSerializer(const std::vector<LogEntry *> &es, uint64_t from, uint64_t num, uint8_t *buf,
+                       std::unordered_map<uint64_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> &offset_map,
+                       uint64_t file_no, uint64_t file_base_offset) {
+    size_t offset = 0;
+    uint64_t i = 0;
+
+    for (i = 0; i < num; i++) {
+        offset_map[es[from + i]->log_idx] = {file_no, {file_base_offset + offset, GetSize(*es[from + i])}};
+        offset += Serializer(*(es[from + i]), buf + offset);
+    }
+
+    return offset;
+}
+
+size_t MultiIntSerializer(std::vector<int> &entries, uint64_t from, uint64_t num, uint8_t *buf, bool with_num) {
+    uint64_t offset = 0;
+    if (with_num) {
+        *reinterpret_cast<uint32_t *>(buf + offset) = num;
+        offset += sizeof(uint32_t);
+    }
+    for (uint64_t i = 0; i < num; i++) {
+        *reinterpret_cast<int *>(buf + offset) = entries[from + i];
+        offset += sizeof(int);
+    }
+    return offset;
+}
+
+size_t MultiIntDeserializer(std::vector<int> &entries, uint8_t *buf) {
+    uint32_t num = *reinterpret_cast<uint32_t *>(buf);
+    uint64_t offset = sizeof(uint32_t);
+
+    for (uint64_t i = 0; i < num; i++) {
+        entries.push_back(*reinterpret_cast<int *>(buf + offset));
+        offset += sizeof(int);
+    }
+
+    return offset;
+}
+
 size_t MultiSerializer(const std::vector<LogEntry> &es, uint8_t *buf) {
     size_t offset = 0;
     uint32_t num = es.size();
@@ -96,12 +148,10 @@ size_t MultiSerializer(const std::vector<LogEntry> &es, uint8_t *buf) {
     return offset;
 }
 
-size_t MultiSerializer(const std::vector<LogEntry> &es, uint64_t from, uint32_t num, uint8_t *buf, bool wo_num) {
+size_t MultiSerializer(const std::vector<LogEntry> &es, uint64_t from, uint32_t num, uint8_t *buf) {
     size_t offset = 0;
-    if (!wo_num) {
-        *reinterpret_cast<uint32_t *>(buf) = num;
-        offset += sizeof(num);
-    }
+    *reinterpret_cast<uint32_t *>(buf) = num;
+    offset += sizeof(num);
 
     for (uint32_t i = 0; i < num; ++i) {
         offset += Serializer(es[from + i], buf + offset);

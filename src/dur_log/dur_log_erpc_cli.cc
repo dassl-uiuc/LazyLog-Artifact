@@ -62,7 +62,7 @@ void DurabilityLogERPCCli::InitializeConn(const Properties &p, const std::string
         LOG(INFO) << "Connecting to durability log eRPC server " << server_uri << "[" << (int)rpc_->get_rpc_id() << "->"
                   << (int)remote_rpc_id << "]";
         rpc_->run_event_loop_once();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 
     if (remote_rpc_id == DL_RSV_RPCID)
@@ -158,13 +158,13 @@ uint64_t DurabilityLogERPCCli::DeleteOrderedEntries(std::vector<LogEntry::ReqID>
 int DurabilityLogERPCCli::SpecRead(const uint64_t idx, LogEntry &e) {
     rpc_->resize_msg_buffer(&req_, sizeof(uint64_t));
 
-    *reinterpret_cast<uint64_t*>(req_.buf_) = idx;
+    *reinterpret_cast<uint64_t *>(req_.buf_) = idx;
 
     rpc_->enqueue_request(session_num_, SPEC_READ, &req_, &resp_, rpc_cont_func, this);
 
     pollForRpcComplete();
 
-    if (resp_.get_data_size() < MetaDataSize()) return *reinterpret_cast<int*>(resp_.buf_);
+    if (resp_.get_data_size() < MetaDataSize()) return *reinterpret_cast<int *>(resp_.buf_);
 
     return Deserializer(e, resp_.buf_);
 }
@@ -207,34 +207,6 @@ void DurabilityLogERPCCli::pollForRpcComplete() {
 }
 
 void DurabilityLogERPCCli::notifyRpcComplete() { complete_ = true; }
-
-#ifdef CORFU
-uint64_t DurabilityLogERPCCli::getGSN() {
-    // size_t len = Serializer(e, req_.buf_);
-
-    rpc_->resize_msg_buffer(&req_, 0);
-    rpc_->enqueue_request(session_num_, GET_GSN, &req_, &resp_, rpc_cont_func, this);
-
-    pollForRpcComplete();
-    if (resp_.get_data_size() < sizeof(uint64_t)) return UINT64_MAX;
-
-    return *reinterpret_cast<uint64_t *>(resp_.buf_);
-}
-
-uint64_t DurabilityLogERPCCli::getGSNBatch(uint64_t batchSize) {
-    rpc_->resize_msg_buffer(&req_, sizeof(uint64_t));
-
-    *reinterpret_cast<uint64_t *>(req_.buf_) = batchSize;
-
-    rpc_->enqueue_request(session_num_, GET_GSN_BATCH, &req_, &resp_, rpc_cont_func, this);
-
-    pollForRpcComplete();
-
-    if (resp_.get_data_size() < sizeof(uint64_t)) return UINT64_MAX;
-
-    return *reinterpret_cast<uint64_t *>(resp_.buf_);
-}
-#endif
 
 const bool registered = RPCFactory::RegisterRPC("durlog_erpc_cli", []() {
     return std::dynamic_pointer_cast<RPCTransport>(std::make_shared<DurabilityLogERPCCli>());

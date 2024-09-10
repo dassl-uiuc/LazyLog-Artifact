@@ -7,7 +7,6 @@
 #include "../rpc/rpc_factory.h"
 #include "../utils/timer.h"
 #include "cons_log_erpc_cli.h"
-#include "storage/kafka_backend.h"
 #include "storage/naive_backend.h"
 
 namespace lazylog {
@@ -53,14 +52,18 @@ void ConsensusLog::Initialize(const Properties& p, void* param) {
 
     pri_dur_cli_ = dur_cli_[pri_dur_uri];
 
-    // For kafka, use KafkaBackend here
-    backend_ = std::make_shared<NaiveBackend>();
-    backend_->InitializeBackend(p);
+    std::vector<std::string> datalog_uri =
+        SeparateValue(p.GetProperty(PROP_SHD_PRI_URI, PROP_SHD_PRI_URI_DEFAULT), ',');
+    shard_num_ = std::stoll(p.GetProperty("shard.num", "1"));
+    for (uint64_t i = 0; i < shard_num_; i++) {
+        datalog_clis_[datalog_uri[i]] = std::make_shared<DataLogClient>();
+        datalog_clis_[datalog_uri[i]]->InitializeConn(p, datalog_uri[i], (void*)-1);
+    }
 }
 
 void ConsensusLog::Finalize() {
-    backend_->FinalizeBackend();
-    for (auto& d : dur_cli_) d.second->Finalize();
+    for (auto& sc : datalog_clis_) sc.second->Finalize();
+    for (auto& dc : dur_cli_) dc.second->Finalize();
 }
 
 uint64_t ConsensusLog::GetNumOrderedEntries() { return max_ordered_idx_ - 1; }
@@ -81,7 +84,18 @@ bool ConsensusLog::fetchAndStore() {
     timer.Start();
 
     total_be_size_ += entries.size() - 1;
-    max_ordered_idx_ = backend_->AppendBatch(entries);
+
+    std::vector<std::shared_ptr<RPCToken>> tokens;
+    for (auto& sc : datalog_clis_) {
+        auto tkn = std::make_shared<RPCToken>();
+        max_ordered_idx_ = sc.second->SendReqIdGsnMappingAsync(entries, tkn);
+        tokens.emplace_back(tkn);
+    }
+
+    do {
+        DataLogClient::RunERPCOnce();
+    } while (!allRPCCompleted(tokens));
+
     total_append_time_ += timer.End();
     total_be_n_++;
 
@@ -94,11 +108,21 @@ bool ConsensusLog::fetchAndStore() {
         d.second->DeleteOrderedEntriesAsync(req_ids);
     }
 
-    while (!allDeletionCompleted());  // busy waiting
+    while (!allDeletionCompleted())
+        ;  // busy waiting
 
     total_gc_time_ += timer.End();
 
-    backend_->UpdateGlobalIdx(last_log_idx);
+    std::vector<RPCToken> tokens_update;
+    tokens_update.reserve(shard_num_);
+    for (auto& sc : datalog_clis_) {
+        tokens_update.emplace_back();
+        sc.second->UpdateGlobalIdxAsync(last_log_idx, tokens_update.back());
+    }
+
+    do {
+        DataLogClient::RunERPCOnce();
+    } while (!allRPCCompleted(tokens_update));
 
     return true;
 }
@@ -139,7 +163,18 @@ void ConsensusLog::store(bool& run) {
     }
 
     timer.Start();
-    max_ordered_idx_ = backend_->AppendBatch(buf_to_store.entries_buf_);
+
+    std::vector<std::shared_ptr<RPCToken>> tokens;
+    for (auto& sc : datalog_clis_) {
+        auto tkn = std::make_shared<RPCToken>();
+        max_ordered_idx_ = sc.second->SendReqIdGsnMappingAsync(buf_to_store.entries_buf_, tkn);
+        tokens.emplace_back(tkn);
+    }
+
+    do {
+        DataLogClient::RunERPCOnce();
+    } while (!allRPCCompleted(tokens));
+
     total_append_time_ += timer.End();
 
     timer.Start();
@@ -152,14 +187,24 @@ void ConsensusLog::store(bool& run) {
     }
     total_gc_time_ += timer.End();
 
-    while (!allDeletionCompleted());  // busy waiting
+    while (!allDeletionCompleted())
+        ;  // busy waiting
 
     buf_to_store.entries_buf_.clear();
 
     buf_to_store.empty_ = true;
     buf_to_store.cv_empty_.notify_one();
 
-    backend_->UpdateGlobalIdx(last_log_idx);
+    std::vector<RPCToken> tokens_update;
+    tokens_update.reserve(shard_num_);
+    for (auto& sc : datalog_clis_) {
+        tokens_update.emplace_back();
+        sc.second->UpdateGlobalIdxAsync(last_log_idx, tokens_update.back());
+    }
+
+    do {
+        DataLogClient::RunERPCOnce();
+    } while (!allRPCCompleted(tokens_update));
 
     round++;
 }
@@ -172,6 +217,20 @@ bool ConsensusLog::allDeletionCompleted() {
                           // each client
     }
     return ret;
+}
+
+bool ConsensusLog::allRPCCompleted(std::vector<std::shared_ptr<RPCToken>>& tokens) {
+    for (auto& t : tokens) {
+        if (!t->Complete()) return false;
+    }
+    return true;
+}
+
+bool ConsensusLog::allRPCCompleted(std::vector<RPCToken>& tokens) {
+    for (auto& t : tokens) {
+        if (!t.Complete()) return false;
+    }
+    return true;
 }
 
 }  // namespace lazylog

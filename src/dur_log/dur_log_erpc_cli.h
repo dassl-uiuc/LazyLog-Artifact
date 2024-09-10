@@ -37,11 +37,6 @@ class DurabilityLogERPCCli : public DurabilityLogCli {
     bool IsPrimary() override;
     bool CheckAndRunOnce() override;
 
-#ifdef CORFU
-    virtual uint64_t getGSN();
-    virtual uint64_t getGSNBatch(uint64_t batchSize);
-#endif
-
    public:
     void AddPendingReq(std::shared_ptr<RPCToken> &token) override;
     void CheckPendingReq() override;

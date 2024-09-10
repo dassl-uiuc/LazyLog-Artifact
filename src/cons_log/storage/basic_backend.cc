@@ -1,7 +1,6 @@
 #include <hdr/hdr_histogram.h>
 
 #include "naive_backend.h"
-#include "kafka_backend.h"
 
 int main(int argc, const char *argv[]) {
     using namespace lazylog;
@@ -18,7 +17,7 @@ int main(int argc, const char *argv[]) {
     char payload[4097];
     memset(payload, 42, 4096);
     payload[4096] = '\0';
-    KafkaBackend be;
+    NaiveBackend be;
     std::vector<LogEntry> entries(batch_size, payload);
     be.InitializeBackend(prop);
 

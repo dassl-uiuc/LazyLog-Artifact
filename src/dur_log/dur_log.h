@@ -37,11 +37,6 @@ class DurabilityLog {
     virtual int SpecReadEntry(const uint64_t idx, LogEntry &e);
     virtual uint16_t GetView() const;
 
-#ifdef CORFU
-    virtual uint64_t GetGSN();
-    virtual uint64_t GetGSN(uint64_t batchSize);
-#endif
-
    protected:
     virtual uint32_t delEntriesPrimary(const std::vector<LogEntry::ReqID> &max_seq_req_ids);
     virtual uint32_t delEntriesBackup(const std::vector<LogEntry::ReqID> &max_seq_req_ids);
@@ -57,10 +52,6 @@ class DurabilityLog {
     std::mutex lk_;
 
     std::list<std::shared_ptr<LogEntry> > pending_entries_ptr_;
-
-#ifdef CORFU
-    std::atomic<uint64_t> gsn_;
-#endif
 
    private:
     Sequencer sequencer_base_;

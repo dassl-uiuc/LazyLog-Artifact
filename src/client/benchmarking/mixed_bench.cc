@@ -6,6 +6,7 @@
 
 #include "../../utils/properties.h"
 #include "../lazylog_cli.h"
+#include "../lazylog_scalable_cli.h"
 
 using namespace lazylog;
 using namespace std::chrono;
@@ -13,43 +14,53 @@ using namespace std::chrono;
 std::unordered_map<int, std::pair<uint64_t, uint64_t>> num_requests_and_durations_reads;
 std::unordered_map<int, std::pair<uint64_t, uint64_t>> num_requests_and_durations_writes;
 
+std::vector<LogEntry> global_entries;
+
 void reader_thread(int thd_id, hdr_histogram* histogram, const Properties& prop) {
     std::cout << "[mixed_bench]: starting reader thread " << thd_id << " ..." << std::endl;
 
-    LazyLogClient cli;
+    LazyLogScalableClient cli;
+    auto modified_p = prop;
+    modified_p.SetProperty("dur_log.client_id", std::to_string(thd_id));
     uint64_t runtime_secs = std::stoll(prop.GetProperty("runtime_secs", "180"));
     num_requests_and_durations_reads.insert({thd_id, {0, 0}});
 
-    cli.Initialize(prop);
+    cli.Initialize(modified_p);
 
     uint64_t idx = 0;
     auto begin = high_resolution_clock::now();
     while (true) {
-        std::string data;
+        std::vector<LogEntry> entries;
         auto start = high_resolution_clock::now();
-        assert(cli.ReadEntry(idx, data));
+        while (!cli.ReadEntries(idx, idx + 50 - 1, entries)) {
+            if (duration_cast<seconds>(high_resolution_clock::now() - begin).count() >= runtime_secs) break;
+            start = high_resolution_clock::now();
+        };
+        // if (entries.size() != 0) global_entries.insert(global_entries.end(), entries.begin(), entries.end());
         hdr_record_value_atomic(histogram, duration_cast<nanoseconds>(high_resolution_clock::now() - start).count());
-        idx++;
+        idx += 50;
         if (duration_cast<seconds>(high_resolution_clock::now() - begin).count() >= runtime_secs) break;
     }
     num_requests_and_durations_reads[thd_id] = {
         idx, duration_cast<nanoseconds>(high_resolution_clock::now() - begin).count()};
-    std::cout << "[mixed_bench]: reader thread " << thd_id << " done" << std::endl;
+    std::cout << "[mixed_bench]: reader thread " << thd_id << " done reading " << idx << " entries" << std::endl;
     return;
 }
 
 void writer_thread(int thd_id, hdr_histogram* histogram, const Properties& prop) {
     std::cout << "[mixed_bench]: starting writer thread " << thd_id << " ..." << std::endl;
 
-    LazyLogClient cli;
+    LazyLogScalableClient cli;
+    auto modified_p = prop;
+    modified_p.SetProperty("dur_log.client_id", std::to_string(thd_id));
     uint64_t runtime_secs = std::stoll(prop.GetProperty("runtime_secs", "180"));
     num_requests_and_durations_writes.insert({thd_id, {0, 0}});
 
-    cli.Initialize(prop);
+    cli.Initialize(modified_p);
 
     uint64_t idx = 0;
-    std::string data(4095, 'A');
 
+    std::string data(4096, 'A');
     auto begin = high_resolution_clock::now();
     while (true) {
         auto start = high_resolution_clock::now();
@@ -60,22 +71,23 @@ void writer_thread(int thd_id, hdr_histogram* histogram, const Properties& prop)
     }
     num_requests_and_durations_writes[thd_id] = {
         idx, duration_cast<nanoseconds>(high_resolution_clock::now() - begin).count()};
-    std::cout << "[mixed_bench]: writer thread " << thd_id << " done" << std::endl;
+    std::cout << "[mixed_bench]: writer thread " << thd_id << " done after executing " << idx << " requests"
+              << std::endl;
     return;
 }
 
-double compute_read_throughput() {
-    double tput;
+long double compute_read_throughput() {
+    long double tput = 0.0;
     for (auto& p : num_requests_and_durations_reads) {
-        tput += double(p.second.first) * 1.0e9 / p.second.second;
+        tput += static_cast<long double>(p.second.first) * 1.0e9 / p.second.second;
     }
     return tput;
 }
 
-double compute_write_throughput() {
-    double tput;
+long double compute_write_throughput() {
+    long double tput = 0.0;
     for (auto& p : num_requests_and_durations_writes) {
-        tput += double(p.second.first) * 1.0e9 / p.second.second;
+        tput += static_cast<long double>(p.second.first) * 1.0e9 / p.second.second;
     }
     return tput;
 }
@@ -90,18 +102,22 @@ int main(int argc, const char* argv[]) {
     ParseCommandLine(argc, argv, prop);
 
     uint64_t runtime_secs = std::stoll(prop.GetProperty("runtime_secs", "180"));
-    int threads = std::stoll(prop.GetProperty("threadcount", "1"));
+    int read_threads = std::stoll(prop.GetProperty("read_threadcount", "1"));
+    int write_threads = std::stoll(prop.GetProperty("write_threadcount", "1"));
 
-    std::cout << "[mixed_bench]: running " << threads << " reader and writer threads, each executing for "
-              << runtime_secs << " seconds..." << std::endl;
+    std::cout << "[mixed_bench]: running " << read_threads << " reader and " << write_threads
+              << " writer threads, each executing for " << runtime_secs << " seconds..." << std::endl;
 
     std::vector<std::thread> reader_threads;
     std::vector<std::thread> writer_threads;
-    for (int i = 0; i < threads; i++) {
-        reader_threads.emplace_back(std::move(std::thread(reader_thread, i, read_histogram, std::ref(prop))));
+    int thd_id = 0;
+    for (int i = 0; i < read_threads; i++) {
+        reader_threads.emplace_back(std::move(std::thread(reader_thread, thd_id, read_histogram, std::ref(prop))));
+        thd_id++;
     }
-    for (int i = 0; i < threads; i++) {
-        writer_threads.emplace_back(std::move(std::thread(writer_thread, i, write_histogram, std::ref(prop))));
+    for (int i = 0; i < write_threads; i++) {
+        writer_threads.emplace_back(std::move(std::thread(writer_thread, thd_id, write_histogram, std::ref(prop))));
+        thd_id++;
     }
     for (auto& t : reader_threads) {
         t.join();
@@ -109,6 +125,14 @@ int main(int argc, const char* argv[]) {
     for (auto& t : writer_threads) {
         t.join();
     }
+
+    // verify
+    // for (uint64_t i = 0; i < global_entries.size(); i++) {
+    //     if (!(global_entries[i].log_idx == i)) {
+    //         std::cout << "[mixed_bench]: verification failed at index " << i << std::endl;
+    //         return 1;
+    //     }
+    // }
 
     std::cout << "[mixed_bench]: read throughput " << compute_read_throughput() << " ops/sec" << std::endl;
     std::cout << "[mixed_bench]: write throughput " << compute_write_throughput() << " ops/sec " << std::endl;

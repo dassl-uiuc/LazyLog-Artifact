@@ -8,7 +8,7 @@ namespace lazylog {
 class StorageBackend {
    public:
     virtual uint64_t AppendBatch(const std::vector<LogEntry> &es) = 0;
-    virtual bool AppendBatch(const uint8_t *buf, size_t sz) = delete;  // current not used
+    virtual bool AppendBatch(const uint8_t *buf, size_t sz) = 0;
     virtual bool ReadEntry(const uint64_t idx, LogEntry &e) = 0;
     virtual void UpdateGlobalIdx(const uint64_t idx) = 0;
 

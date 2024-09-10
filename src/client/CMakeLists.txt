@@ -1,4 +1,6 @@
-target_sources(lazylogcli PRIVATE lazylog_cli.cc)
+target_sources(lazylogcli
+    PRIVATE lazylog_cli.cc
+    PRIVATE lazylog_scalable_cli.cc)
 add_executable(basic_cli basic_client.cc)
 
 target_link_libraries(basic_cli
