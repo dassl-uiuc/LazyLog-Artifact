@@ -9,8 +9,8 @@ cfg_dir="cfg"
 source $(dirname $0)/common.sh
 
 num_shards=(1 3 5)
-msg_size=(4096 8192)
-clients=(4 12 18 8 16 18)
+msg_size=(4096)
+clients=(4 12 18)
 cli_idx=0
 
 for size in "${msg_size[@]}";
@@ -38,8 +38,8 @@ do
         kill_shard_svrs
         kill_dur_svrs
         collect_logs
-        mkdir -p ${ll_dir}/logs_${c}_${size}_${shard}
-        mv $ll_dir/logs/* ${ll_dir}/logs_${c}_${size}_${shard}
+        mkdir -p ${ll_dir}/logs_${c}_${size}_${shard}_st
+        mv $ll_dir/logs/* ${ll_dir}/logs_${c}_${size}_${shard}_st
         rm -rf $ll_dir/logs
         cli_idx=$((cli_idx+1))
     done

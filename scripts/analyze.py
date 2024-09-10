@@ -31,4 +31,4 @@ for dir_name in os.listdir(base_dir):
                         p99 += float(line.split()[1]) / 1000
                     if "p99.9" in line:
                         p999 += float(line.split()[1]) / 1000
-        print(f"{clients:<8}, {avg_tput:<17}, {avg_latency/num_files:<18}, {p99/num_files:<10}, {p999/num_files:<12}")
+        print(f'{clients:<8}, {avg_tput:<17.3f}, {avg_latency/num_files:<18.3f}, {p99/num_files:<10.3f}, {p999/num_files:<12.3f}')
