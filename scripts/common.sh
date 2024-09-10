@@ -171,10 +171,12 @@ kill_shard_svrs() {
     for svr in "${shard_pri[@]}"; 
     do
         ssh -o StrictHostKeyChecking=no -i $pe $username@$svr "sudo bash -s datalogsvr" < $script_dir/kill_process.sh &
+        ssh -o StrictHostKeyChecking=no -i $pe $username@$svr "sudo kill -9 \$(sudo lsof -t -i:31860)" > /dev/null 2>&1
     done
     for svr in "${shard_bac[@]}"; 
     do
         ssh -o StrictHostKeyChecking=no -i $pe $username@$svr "sudo bash -s datalogsvr" < $script_dir/kill_process.sh &
+        ssh -o StrictHostKeyChecking=no -i $pe $username@$svr "sudo kill -9 \$(sudo lsof -t -i:31860)" > /dev/null 2>&1
     done 
     wait
 }
