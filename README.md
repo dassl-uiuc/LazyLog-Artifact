@@ -1,5 +1,11 @@
 # LazyLog: A New Shared Log Abstraction for Low-Latency Applications 
-This repo is the artifact for: <to be added>
+This repo is the artifact for:
+
+[**LazyLog: A New Shared Log Abstraction for Low-Latency Applications**](https://doi.org/10.1145/3694715.3695983)
+
+Xuhao Luo, Shreesha Bhat*, Jiyu Hu*, Ramnatthan Alagappan, Aishwarya Ganesan
+
+(*=joint second authorship)
 
 ## Setup
 For ease of setup, we request that the source code for LazyLog and eRPC and their binaries be hosted on a network-file system so that all the nodes can share these files. 
