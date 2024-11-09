@@ -1,0 +1,7 @@
+shard.client_uri=${client_uri}
+shard.primary_uri=${primary_uri}
+shard.backup_uri=${backup_uri}
+shard.msg_size=${msg_size}
+shard.stripe_unit_size=${stripe_unit}
+shard.num=${shard_num}
+shard.folder_path=${folder}

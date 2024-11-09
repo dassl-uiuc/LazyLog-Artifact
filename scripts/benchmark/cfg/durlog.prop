@@ -1,0 +1,5 @@
+dur_log.server_uri=10.10.1.2:31850
+dur_log.mr_size_m=512
+cons_log.server_uri=10.10.1.1:31852
+server.rpc_transport=durlog_erpc_svr
+client.rpc_transport=conslog_erpc_cli

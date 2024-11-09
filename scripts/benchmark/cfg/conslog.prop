@@ -1,0 +1,6 @@
+cons_log.server_uri=10.10.1.1:31852
+dur_log.mr_size_m=512
+cons_log.max_fetch_size=2097152
+cons_log.pipeline=true
+server.rpc_transport=conslog_erpc_svr
+client.rpc_transport=durlog_erpc_cli

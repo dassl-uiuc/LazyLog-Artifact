@@ -1,0 +1,21 @@
+nodes:
+ - "10.10.1.7"
+ - "10.10.1.2"
+ - "10.10.1.3"
+ - "10.10.1.4"
+ - "10.10.1.1"
+ - "10.10.1.5"
+ - "10.10.1.6"
+dur_log:
+  mr_size: 512
+  msg_size: 8196
+  rep: 3
+cons_log:
+  mr_size: 512
+  max_fetch_size: 2097152
+  pipeline: true
+backend:
+  msg_size: 6291456
+  stripe_unit: 4000
+  path: "/data"
+  rep: 2

@@ -1,0 +1,5 @@
+dur_log.server_uri=10.10.1.2:31850
+dur_log.primary_uri=10.10.1.2:31850
+dur_log.client_uri=10.10.1.1:31851
+dur_log.msg_size=12288
+dur_log.threadcount=18

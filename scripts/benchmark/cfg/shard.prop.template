@@ -1,0 +1,3 @@
+shard.server_uri=${server_uri}
+shard.backup_uri=${backup_uri}
+shard.id=${shard_id}

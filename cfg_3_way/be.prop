@@ -1,0 +1,9 @@
+shard.client_uri=10.10.1.1:31851
+shard.primary_uri=10.10.1.6:31860,10.10.1.8:31860,10.10.1.10:31860,10.10.1.12:31860,10.10.1.14:31860
+shard.backup_uri=10.10.1.7:31860,10.10.1.9:31860,10.10.1.11:31860,10.10.1.13:31860,10.10.1.15:31860
+shard.msg_size=6291456
+shard.stripe_unit_size=1000
+shard.num=5
+shard.folder_path=/data
+shard.threadcount=18
+bootstrap.servers=node-5:9092

@@ -1,0 +1,6 @@
+dur_log.server_uri=${server_uri}
+dur_log.mr_size_m=${mr_size}
+cons_log.server_uri=${cl_server_uri}
+server.rpc_transport=durlog_erpc_svr
+client.rpc_transport=conslog_erpc_cli
+threadcount=${th}
