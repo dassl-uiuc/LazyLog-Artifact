@@ -1,0 +1,9 @@
+libnuma-dev
+libibverbs-dev
+zlib1g-dev
+libgflags-dev
+libgtest-dev
+libunwind-dev
+libgoogle-glog-dev
+
+python3-pip

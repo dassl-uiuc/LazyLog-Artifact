@@ -1,0 +1,6 @@
+cons_log.server_uri=${server_uri}
+dur_log.mr_size_m=${mr_size}
+cons_log.max_fetch_size=${fetch_size}
+cons_log.pipeline=${ppl}
+server.rpc_transport=conslog_erpc_svr
+client.rpc_transport=durlog_erpc_cli

@@ -1,0 +1,8 @@
+shard.server_uri=10.10.1.7:31860
+shard.client_uri=10.10.1.5:31861
+shard.num=1
+shard.backup_uri=10.10.1.6:31860
+shard.id=0
+shard.msg_size=6291456
+shard.stripe_unit_size=1000
+shard.folder_path=/data/data/

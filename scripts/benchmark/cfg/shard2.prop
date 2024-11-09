@@ -1,0 +1,4 @@
+shard.server_uri=10.10.1.10:31864
+shard.id=2
+threadcount=9
+offset=0

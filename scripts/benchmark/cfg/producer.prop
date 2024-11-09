@@ -1,0 +1,4 @@
+dur_log.server_uri=10.10.1.10:31850,10.10.1.11:31850,10.10.1.16:31850
+dur_log.primary_uri=10.10.1.10:31850
+dur_log.client_uri=10.10.1.15:31851
+dur_log.msg_size=8196

@@ -1,0 +1,5 @@
+dur_log.server_uri=${server_uri}
+dur_log.primary_uri=${primary_uri}
+dur_log.client_uri=${client_uri}
+dur_log.msg_size=${msg_size}
+dur_log.threadcount=${durlog_th}
