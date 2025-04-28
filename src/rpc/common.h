@@ -89,6 +89,11 @@ const uint8_t APPEND_ENTRY_BE = 26;
 const uint8_t REP_ENTRY = 27;
 #endif
 
+
+/* KV Application Interfaces */
+const uint8_t KV_INSERT = 41;
+const uint8_t KV_READ = 42;
+
 const size_t PAGE_SIZE = 4096;
 const size_t SAFE_RG_SIZE = 2 * PAGE_SIZE;
 

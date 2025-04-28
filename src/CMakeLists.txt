@@ -25,6 +25,7 @@ add_subdirectory(cons_log)
 add_subdirectory(rpc)
 add_subdirectory(utils)
 add_subdirectory(benchmark)
+add_subdirectory(app)
 
 add_custom_target(gen_net_config ALL
     DEPENDS ${CMAKE_SOURCE_DIR}/cfg/rdma.prop)
