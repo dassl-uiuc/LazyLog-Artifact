@@ -1,0 +1,117 @@
+---
+# Installs LazyLog dependencies on every test node.
+# Mirrors scripts/deps.sh and scripts/install_mlnx.sh, but is idempotent and
+# handles the known MLNX_OFED hang ("Installing srptools...") by rebooting
+# and re-running the installer.
+#
+# Usage (from this directory):
+#   ansible-playbook install_deps.yml                 # everything, all nodes
+#   ansible-playbook install_deps.yml --tags deps     # apt packages only
+#   ansible-playbook install_deps.yml --tags mlnx     # RDMA driver only
+#   ansible-playbook install_deps.yml --limit node1   # a subset of nodes
+#
+# NOTE: the MLNX step reboots nodes. If you run this from one of the test nodes
+# (e.g. node0), exclude it with --limit '!node0' and install there by hand.
+
+- name: Install LazyLog dependencies
+  hosts: test_nodes
+  become: true
+  gather_facts: true
+
+  vars:
+    apt_packages:
+      - libnuma-dev
+      - librdkafka-dev
+      - libboost-all-dev
+      - libssl-dev
+      - libcrypto++-dev
+      - libgflags-dev
+      - cmake
+
+    mlnx_version: "23.10-0.5.5.0"
+    mlnx_name: "MLNX_OFED_LINUX-{{ mlnx_version }}-ubuntu22.04-x86_64"
+    mlnx_url: "https://content.mellanox.com/ofed/MLNX_OFED-{{ mlnx_version }}/{{ mlnx_name }}.tgz"
+    mlnx_dir: /opt
+    # Seconds before an installer run is treated as hung (kernel-module build
+    # normally takes 10-20 min).
+    mlnx_install_timeout: 2400
+    reboot_timeout: 1200
+
+  tasks:
+    # ---------------------------------------------------------------- deps.sh
+    - name: Install apt dependencies (deps.sh)
+      ansible.builtin.apt:
+        name: "{{ apt_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      tags: [deps]
+
+    # -------------------------------------------------------- install_mlnx.sh
+    - name: Check installed MLNX_OFED version
+      ansible.builtin.command: ofed_info -s
+      register: ofed_info
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      tags: [mlnx]
+
+    - name: Install MLNX_OFED
+      when: mlnx_version not in (ofed_info.stdout | default(''))
+      tags: [mlnx]
+      block:
+        - name: Download MLNX_OFED tarball
+          ansible.builtin.get_url:
+            url: "{{ mlnx_url }}"
+            dest: "{{ mlnx_dir }}/{{ mlnx_name }}.tgz"
+            mode: "0644"
+            timeout: 120
+
+        - name: Extract MLNX_OFED tarball
+          ansible.builtin.unarchive:
+            src: "{{ mlnx_dir }}/{{ mlnx_name }}.tgz"
+            dest: "{{ mlnx_dir }}"
+            remote_src: true
+            creates: "{{ mlnx_dir }}/{{ mlnx_name }}/mlnxofedinstall"
+
+        - name: Run mlnxofedinstall (first attempt)
+          block:
+            - name: Run mlnxofedinstall
+              ansible.builtin.command:
+                cmd: ./mlnxofedinstall --auto-add-kernel-support --without-fw-update --force
+                chdir: "{{ mlnx_dir }}/{{ mlnx_name }}"
+              async: "{{ mlnx_install_timeout }}"
+              poll: 30
+          rescue:
+            # First install often hangs at "Installing srptools"; the fix is
+            # to reboot and run the installer again.
+            - name: Reboot after failed/hung first install
+              ansible.builtin.reboot:
+                reboot_timeout: "{{ reboot_timeout }}"
+
+            - name: Finish any interrupted dpkg operations
+              ansible.builtin.command: dpkg --configure -a
+              changed_when: true
+
+            - name: Run mlnxofedinstall (retry)
+              ansible.builtin.command:
+                cmd: ./mlnxofedinstall --auto-add-kernel-support --without-fw-update --force
+                chdir: "{{ mlnx_dir }}/{{ mlnx_name }}"
+              async: "{{ mlnx_install_timeout }}"
+              poll: 30
+
+        - name: Restart openibd
+          ansible.builtin.command: /etc/init.d/openibd restart
+          changed_when: true
+
+        - name: Reboot so RDMA interfaces come up
+          ansible.builtin.reboot:
+            reboot_timeout: "{{ reboot_timeout }}"
+
+    - name: Verify MLNX_OFED version
+      ansible.builtin.command: ofed_info -s
+      register: ofed_check
+      changed_when: false
+      failed_when: mlnx_version not in ofed_check.stdout
+      when: not ansible_check_mode
+      tags: [mlnx]
